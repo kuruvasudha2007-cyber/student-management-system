@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Student</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="header">
+    <div>
+        <h1>School Management</h1>
+        <p>Update student information</p>
+    </div>
+
+    <nav class="navbar">
+        <a href="index.html">Home</a>
+        <a href="insert.html">Add Student</a>
+        <a href="list.html">All Students</a>
+        <a href="listOne.html">Find Student</a>
+        <a href="update.html">Update</a>
+        <a href="delete.html">Delete</a>
+    </nav>
+</header>
+
+<main class="container">
+
+    <section class="form-card">
+        <h2>Update Student</h2>
+
+        <p class="description">
+            Select a Student ID, load the record, and change the details.
+        </p>
+
+        <div class="form-group">
+            <label for="studentId">Select Student ID</label>
+            <select id="studentId">
+                <option value="">Loading Student IDs...</option>
+            </select>
+        </div>
+
+        <div class="actions">
+            <button type="button" class="btn btn-secondary" id="loadBtn">
+                Load Student
+            </button>
+        </div>
+
+        <form id="updateForm" hidden style="margin-top: 25px;">
+
+            <div class="form-group">
+                <label for="name">Student Name</label>
+                <input type="text" id="name" maxlength="45" required>
+            </div>
+
+            <div class="form-group">
+                <label for="className">Class</label>
+                <input
+                    type="number"
+                    id="className"
+                    min="1"
+                    step="1"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="total">Total Marks</label>
+                <input
+                    type="number"
+                    id="total"
+                    min="0"
+                    step="1"
+                    required
+                >
+            </div>
+
+            <div class="actions">
+                <button type="submit" class="btn" id="updateBtn">
+                    Update Student
+                </button>
+            </div>
+
+        </form>
+
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+    </section>
+
+</main>
+
+<footer class="footer">
+    School Student Management System
+</footer>
+
+<script>
+const studentId = document.getElementById("studentId");
+const loadBtn = document.getElementById("loadBtn");
+const updateBtn = document.getElementById("updateBtn");
+const updateForm = document.getElementById("updateForm");
+const statusBox = document.getElementById("status");
+
+let selectedStudentId = "";
+
+loadBtn.addEventListener("click", loadStudent);
+updateForm.addEventListener("submit", updateStudent);
+
+// Get a value using the possible names returned by the API.
+function getStudentValue(student, names) {
+    for (const name of names) {
+        if (student[name] !== undefined && student[name] !== null) {
+            return student[name];
+        }
+    }
+
+    return "";
+}
+
+function showStatus(message, type) {
+    statusBox.textContent = message;
+    statusBox.className = "status " + type;
+}
+
+async function loadStudentIds() {
+    studentId.replaceChildren();
+
+    const loadingOption = document.createElement("option");
+    loadingOption.value = "";
+    loadingOption.textContent = "Loading Student IDs...";
+    studentId.appendChild(loadingOption);
+
+    try {
+        const response = await fetch("/students");
+
+        if (!response.ok) {
+            throw new Error("Unable to load Student IDs.");
+        }
+
+        const students = await response.json();
+
+        studentId.replaceChildren();
+
+        const firstOption = document.createElement("option");
+        firstOption.value = "";
+        firstOption.textContent = students.length
+            ? "Select Student ID"
+            : "No Students Available";
+
+        studentId.appendChild(firstOption);
+
+        students.forEach(function(student) {
+            const id = getStudentValue(student, [
+                "student id",
+                "sno",
+                "student_id",
+                "studentId"
+            ]);
+
+            const name = getStudentValue(student, [
+                "student name",
+                "name",
+                "student_name",
+                "studentName"
+            ]);
+
+            const option = document.createElement("option");
+            option.value = id;
+            option.textContent = id + " - " + name;
+            studentId.appendChild(option);
+        });
+
+        if (students.length === 0) {
+            showStatus("No students found. Add a student first.", "error");
+        }
+
+    } catch (error) {
+        showStatus(error.message, "error");
+    }
+}
+
+async function loadStudent() {
+    const sno = studentId.value;
+
+    if (!sno) {
+        showStatus("Please select a Student ID.", "error");
+        return;
+    }
+
+    loadBtn.disabled = true;
+    loadBtn.textContent = "Loading...";
+    updateForm.hidden = true;
+    selectedStudentId = "";
+
+    showStatus("Loading student details...", "loading");
+
+    try {
+        const response = await fetch(
+            "/students/" + encodeURIComponent(sno)
+        );
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        let student = await response.json();
+
+        // Support APIs that return either an object or an array.
+        if (Array.isArray(student)) {
+            student = student[0];
+        }
+
+        if (!student) {
+            throw new Error("Student not found.");
+        }
+
+        const id = getStudentValue(student, [
+            "student id",
+            "sno",
+            "student_id",
+            "studentId"
+        ]);
+
+        const name = getStudentValue(student, [
+            "student name",
+            "name",
+            "student_name",
+            "studentName"
+        ]);
+
+        const studentClass = getStudentValue(student, [
+            "class",
+            "studentClass"
+        ]);
+
+        const total = getStudentValue(student, [
+            "total"
+        ]);
+
+        if (id === "" || name === "") {
+            throw new Error(
+                "Student data is missing. Please check the backend API response."
+            );
+        }
+
+        selectedStudentId = String(id);
+
+        document.getElementById("name").value = name;
+        document.getElementById("className").value = studentClass;
+        document.getElementById("total").value = total;
+
+        updateForm.hidden = false;
+
+        showStatus(
+            "Student details loaded. You can now edit them.",
+            "success"
+        );
+
+    } catch (error) {
+        showStatus(error.message, "error");
+    } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = "Load Student";
+    }
+}
+
+async function updateStudent(event) {
+    event.preventDefault();
+
+    if (!selectedStudentId) {
+        showStatus("Please load a student first.", "error");
+        return;
+    }
+
+    const name = document.getElementById("name").value.trim();
+    const classValue = document.getElementById("className").value;
+    const totalValue = document.getElementById("total").value;
+
+    const studentClass = Number(classValue);
+    const total = Number(totalValue);
+
+    if (
+        !name ||
+        classValue === "" ||
+        totalValue === "" ||
+        !Number.isInteger(studentClass) ||
+        studentClass < 1 ||
+        !Number.isInteger(total) ||
+        total < 0
+    ) {
+        showStatus(
+            "Enter a valid name, class number, and total marks.",
+            "error"
+        );
+        return;
+    }
+
+    updateBtn.disabled = true;
+    updateBtn.textContent = "Updating...";
+
+    showStatus("Updating student details...", "loading");
+
+    try {
+        const response = await fetch(
+            "/students/" + encodeURIComponent(selectedStudentId),
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    name: name,
+                    studentClass: studentClass,
+                    total: total
+                })
+            }
+        );
+
+        const message = await response.text();
+
+        if (!response.ok) {
+            throw new Error(message || "Unable to update student.");
+        }
+
+        showStatus(
+            message || "Student updated successfully!",
+            "success"
+        );
+
+        await loadStudentIds();
+
+        studentId.value = selectedStudentId;
+
+    } catch (error) {
+        showStatus(error.message, "error");
+    } finally {
+        updateBtn.disabled = false;
+        updateBtn.textContent = "Update Student";
+    }
+}
+
+loadStudentIds();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Student</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+    <div>
+        <h1>School Management</h1>
+        <p>Remove a student record</p>
+    </div>
+
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="insert.html">Add Student</a>
+        <a href="list.html">All Students</a>
+        <a href="listOne.html">Find Student</a>
+        <a href="update.html">Update</a>
+        <a href="delete.html">Delete</a>
+    </nav>
+</header>
+
+<main class="container">
+
+    <section class="form-card">
+        <h2>Delete Student</h2>
+
+        <p class="description">
+            Select the Student ID you want to remove.
+            This action cannot be undone.
+        </p>
+
+        <div class="form-group">
+            <label for="studentId">Select Student ID</label>
+
+            <select id="studentId">
+                <option value="">Loading Student IDs...</option>
+            </select>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-danger" id="deleteBtn">
+                Delete Student
+            </button>
+
+            <button class="btn btn-secondary" id="reloadBtn">
+                Reload IDs
+            </button>
+        </div>
+
+        <div id="status" class="status"
+             role="status" aria-live="polite"></div>
+    </section>
+
+</main>
+
+<footer>
+    School Student Management System
+</footer>
+
+<script>
+const studentId = document.getElementById("studentId");
+const deleteBtn = document.getElementById("deleteBtn");
+const reloadBtn = document.getElementById("reloadBtn");
+const statusBox = document.getElementById("status");
+
+deleteBtn.addEventListener("click", deleteStudent);
+reloadBtn.addEventListener("click", loadStudentIds);
+
+
+// Load student IDs and names
+async function loadStudentIds() {
+
+    studentId.replaceChildren();
+
+    const loadingOption = document.createElement("option");
+    loadingOption.value = "";
+    loadingOption.textContent = "Loading Student IDs...";
+    studentId.appendChild(loadingOption);
+
+    reloadBtn.disabled = true;
+    reloadBtn.textContent = "Loading...";
+
+    showStatus("Loading student records...", "loading");
+
+    try {
+
+        const response = await fetch("/students");
+
+        if (!response.ok) {
+            throw new Error("Unable to load student records.");
+        }
+
+        const students = await response.json();
+
+        if (!Array.isArray(students)) {
+            throw new Error(
+                "Invalid student data received from the server."
+            );
+        }
+
+        studentId.replaceChildren();
+
+        const firstOption = document.createElement("option");
+        firstOption.value = "";
+        firstOption.textContent = students.length
+            ? "Select Student ID"
+            : "No Students Available";
+
+        studentId.appendChild(firstOption);
+
+        students.forEach(function(student) {
+
+            // Match the actual MySQL column names.
+            const id =
+                student["student id"] ??
+                student.sno ??
+                student.student_id ??
+                student.studentId;
+
+            const name =
+                student["student name"] ??
+                student.name ??
+                student.student_name ??
+                student.studentName;
+
+            // Skip records without a valid student ID.
+            if (id === undefined || id === null) {
+                console.error("Student ID missing:", student);
+                return;
+            }
+
+            const option = document.createElement("option");
+
+            option.value = id;
+
+            option.textContent =
+                id + " - " +
+                (name !== undefined && name !== null
+                    ? name
+                    : "Name unavailable");
+
+            studentId.appendChild(option);
+        });
+
+        const availableStudents = studentId.options.length - 1;
+
+        showStatus(
+            availableStudents > 0
+                ? "Student records loaded successfully."
+                : "No student records available. Check the server response.",
+            availableStudents > 0 ? "success" : "error"
+        );
+
+    } catch (error) {
+
+        studentId.replaceChildren();
+
+        const errorOption = document.createElement("option");
+        errorOption.value = "";
+        errorOption.textContent = "Unable to load students";
+        studentId.appendChild(errorOption);
+
+        showStatus(error.message, "error");
+
+        console.error("Error loading students:", error);
+
+    } finally {
+
+        reloadBtn.disabled = false;
+        reloadBtn.textContent = "Reload IDs";
+    }
+}
+
+
+// Delete the selected student
+async function deleteStudent() {
+
+    const sno = studentId.value;
+
+    if (!sno) {
+        showStatus("Please select a Student ID.", "error");
+        return;
+    }
+
+    const selectedText =
+        studentId.options[studentId.selectedIndex].textContent;
+
+    const confirmed = confirm(
+        "Are you sure you want to delete student " +
+        selectedText + "?"
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = "Deleting...";
+
+    showStatus("Deleting student record...", "loading");
+
+    try {
+
+        const response = await fetch(
+            "/students/" + encodeURIComponent(sno),
+            {
+                method: "DELETE"
+            }
+        );
+
+        const message = await response.text();
+
+        if (!response.ok) {
+            throw new Error(
+                message || "Unable to delete the student."
+            );
+        }
+
+        showStatus(
+            message || "Student deleted successfully.",
+            "success"
+        );
+
+        // Reload the dropdown after deleting.
+        await loadStudentIds();
+
+    } catch (error) {
+
+        showStatus(error.message, "error");
+
+        console.error("Error deleting student:", error);
+
+    } finally {
+
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = "Delete Student";
+    }
+}
+
+
+// Display status messages
+function showStatus(message, type) {
+
+    statusBox.textContent = message;
+    statusBox.className = "status " + type;
+}
+
+
+// Load student records when the page opens.
+loadStudentIds();
+
+</script>
+
+</body>
+</html>

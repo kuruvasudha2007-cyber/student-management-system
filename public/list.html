@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Students</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>School Management</h1>
+        <p>All registered students</p>
+    </div>
+
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="insert.html">Add Student</a>
+        <a href="list.html">All Students</a>
+        <a href="listOne.html">Find Student</a>
+        <a href="update.html">Update</a>
+        <a href="delete.html">Delete</a>
+    </nav>
+</header>
+
+<main class="container">
+
+    <h2 class="section-title">Student Records</h2>
+
+    <div class="actions">
+        <button class="btn" id="refreshBtn">Refresh Records</button>
+        <a class="btn btn-secondary" href="insert.html">Add Student</a>
+    </div>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <div id="tableContainer" style="margin-top: 20px;"></div>
+
+</main>
+
+<footer>
+    School Student Management System
+</footer>
+
+<script>
+const statusBox = document.getElementById("status");
+const tableContainer = document.getElementById("tableContainer");
+const refreshBtn = document.getElementById("refreshBtn");
+
+refreshBtn.addEventListener("click", loadStudents);
+
+async function loadStudents() {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = "Loading...";
+
+    showStatus("Loading student records...", "loading");
+
+    try {
+        const response = await fetch("/students");
+
+        if (!response.ok) {
+            throw new Error("Unable to load student records.");
+        }
+
+        const students = await response.json();
+
+        if (!Array.isArray(students)) {
+            throw new Error("Invalid student data received from the server.");
+        }
+
+        if (students.length === 0) {
+            tableContainer.innerHTML =
+                '<div class="empty-message">No student records found.</div>';
+
+            showStatus("No students are registered yet.", "success");
+            return;
+        }
+
+        // Create table
+        const table = document.createElement("table");
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+
+        ["Student ID", "Name", "Class", "Total"].forEach(function(title) {
+            const th = document.createElement("th");
+            th.textContent = title;
+            headerRow.appendChild(th);
+        });
+
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Add student records
+        const tbody = document.createElement("tbody");
+
+        students.forEach(function(student) {
+            const row = document.createElement("tr");
+
+            const values = [
+                student["student id"] ?? student.sno ?? student.student_id,
+                student["student name"] ?? student.name ?? student.student_name,
+                student.class,
+                student.total
+            ];
+
+            values.forEach(function(value) {
+                const td = document.createElement("td");
+                td.textContent = value ?? "";
+                row.appendChild(td);
+            });
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+
+        // Display table
+        tableContainer.replaceChildren();
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "table-wrapper";
+        wrapper.appendChild(table);
+
+        tableContainer.appendChild(wrapper);
+
+        showStatus("Student records loaded successfully.", "success");
+
+    } catch (error) {
+        tableContainer.replaceChildren();
+        showStatus(error.message, "error");
+        console.error("Error loading students:", error);
+    } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = "Refresh Records";
+    }
+}
+
+function showStatus(message, type) {
+    statusBox.textContent = message;
+    statusBox.className = "status " + type;
+}
+
+// Load records when the page opens
+loadStudents();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Student</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header>
+        <div>
+            <h1>School Management</h1>
+            <p>Find an individual student</p>
+        </div>
+
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="insert.html">Add Student</a>
+            <a href="list.html">All Students</a>
+            <a href="listOne.html">Find Student</a>
+            <a href="update.html">Update</a>
+            <a href="delete.html">Delete</a>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+
+        <section class="form-card">
+
+            <h2>Find Student</h2>
+
+            <p class="description">
+                Select a Student ID to view that student's information.
+            </p>
+
+            <div class="form-group">
+                <label for="studentId">Select Student ID</label>
+
+                <select id="studentId">
+                    <option value="">Loading Student IDs...</option>
+                </select>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="btn" id="findBtn">
+                    View Student
+                </button>
+
+                <button type="button" class="btn btn-secondary" id="reloadBtn">
+                    Reload IDs
+                </button>
+            </div>
+
+            <div
+                id="status"
+                class="status"
+                role="status"
+                aria-live="polite"
+            ></div>
+
+            <div id="studentDetails" style="margin-top: 20px;"></div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        School Student Management System
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        const studentId = document.getElementById("studentId");
+        const findBtn = document.getElementById("findBtn");
+        const reloadBtn = document.getElementById("reloadBtn");
+        const statusBox = document.getElementById("status");
+        const studentDetails = document.getElementById("studentDetails");
+
+        findBtn.addEventListener("click", findStudent);
+        reloadBtn.addEventListener("click", loadStudentIds);
+
+        // Read a value using the possible column names
+        function getStudentValue(student, possibleNames) {
+            for (const name of possibleNames) {
+                if (
+                    student[name] !== undefined &&
+                    student[name] !== null
+                ) {
+                    return student[name];
+                }
+            }
+
+            return "";
+        }
+
+        // Load all Student IDs into the dropdown
+        async function loadStudentIds() {
+            studentId.replaceChildren();
+            studentDetails.replaceChildren();
+
+            const loadingOption = document.createElement("option");
+            loadingOption.value = "";
+            loadingOption.textContent = "Loading Student IDs...";
+            studentId.appendChild(loadingOption);
+
+            reloadBtn.disabled = true;
+            reloadBtn.textContent = "Loading...";
+
+            showStatus("Loading Student IDs...", "loading");
+
+            try {
+                const response = await fetch("/students");
+
+                if (!response.ok) {
+                    throw new Error("Unable to load Student IDs.");
+                }
+
+                const students = await response.json();
+
+                if (!Array.isArray(students)) {
+                    throw new Error("Invalid student data received.");
+                }
+
+                studentId.replaceChildren();
+
+                const defaultOption = document.createElement("option");
+                defaultOption.value = "";
+                defaultOption.textContent = students.length
+                    ? "Select Student ID"
+                    : "No Students Available";
+
+                studentId.appendChild(defaultOption);
+
+                students.forEach(function(student) {
+                    const sno = getStudentValue(student, [
+                        "student id",
+                        "sno",
+                        "student_id",
+                        "studentId"
+                    ]);
+
+                    const name = getStudentValue(student, [
+                        "student name",
+                        "name",
+                        "student_name",
+                        "studentName"
+                    ]);
+
+                    if (sno !== "") {
+                        const option = document.createElement("option");
+
+                        option.value = sno;
+                        option.textContent = name !== ""
+                            ? sno + " - " + name
+                            : sno;
+
+                        studentId.appendChild(option);
+                    }
+                });
+
+                if (studentId.options.length > 1) {
+                    showStatus(
+                        "Student IDs loaded successfully.",
+                        "success"
+                    );
+                } else {
+                    showStatus(
+                        "No students found. Add a student first.",
+                        "error"
+                    );
+                }
+
+            } catch (error) {
+                studentId.replaceChildren();
+
+                const option = document.createElement("option");
+                option.value = "";
+                option.textContent = "Unable to load Student IDs";
+
+                studentId.appendChild(option);
+
+                showStatus(error.message, "error");
+
+                console.error("Error loading student IDs:", error);
+
+            } finally {
+                reloadBtn.disabled = false;
+                reloadBtn.textContent = "Reload IDs";
+            }
+        }
+
+        // Find and display one student
+        async function findStudent() {
+            const sno = studentId.value;
+
+            if (!sno) {
+                showStatus("Please select a Student ID.", "error");
+                return;
+            }
+
+            findBtn.disabled = true;
+            findBtn.textContent = "Loading...";
+
+            showStatus("Fetching student details...", "loading");
+            studentDetails.replaceChildren();
+
+            try {
+                const response = await fetch(
+                    "/students/" + encodeURIComponent(sno)
+                );
+
+                if (!response.ok) {
+                    const message = await response.text();
+
+                    throw new Error(
+                        message || "Unable to find this student."
+                    );
+                }
+
+                const student = await response.json();
+
+                // Handle either a single object or an array containing one record
+                const record = Array.isArray(student)
+                    ? student[0]
+                    : student;
+
+                if (!record || typeof record !== "object") {
+                    throw new Error("Student record not found.");
+                }
+
+                const snoValue = getStudentValue(record, [
+                    "student id",
+                    "sno",
+                    "student_id",
+                    "studentId"
+                ]);
+
+                const nameValue = getStudentValue(record, [
+                    "student name",
+                    "name",
+                    "student_name",
+                    "studentName"
+                ]);
+
+                const classValue = getStudentValue(record, [
+                    "class"
+                ]);
+
+                const totalValue = getStudentValue(record, [
+                    "total"
+                ]);
+
+                const card = document.createElement("div");
+                card.className = "card";
+
+                const title = document.createElement("h3");
+                title.textContent = "Student Details";
+                card.appendChild(title);
+
+                const details = [
+                    ["Student ID", snoValue],
+                    ["Name", nameValue],
+                    ["Class", classValue],
+                    ["Total", totalValue]
+                ];
+
+                details.forEach(function(item) {
+                    const p = document.createElement("p");
+
+                    p.textContent = item[0] + ": " +
+                        (item[1] !== "" ? item[1] : "Not available");
+
+                    card.appendChild(p);
+                });
+
+                studentDetails.replaceChildren(card);
+
+                showStatus(
+                    "Student details loaded successfully.",
+                    "success"
+                );
+
+            } catch (error) {
+                showStatus(error.message, "error");
+                console.error("Error finding student:", error);
+
+            } finally {
+                findBtn.disabled = false;
+                findBtn.textContent = "View Student";
+            }
+        }
+
+        // Display status messages
+        function showStatus(message, type) {
+            statusBox.textContent = message;
+            statusBox.className = "status " + type;
+        }
+
+        // Load IDs when the page opens
+        loadStudentIds();
+    </script>
+
+</body>
+
+</html>
